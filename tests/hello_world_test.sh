@@ -2,8 +2,9 @@
 # hello_world_test.sh
 
 testHelloWorld() {
-  result=$(echo "Hello, World!")
-  assertEquals "Hello, World!" "$result"
+  echo "Hello, World!"
+  assertEquals "Hello, World!" "$(echo Hello, World!)"
 }
 
-. shunit2
+# Load shunit2
+. ./shunit2/shunit2
