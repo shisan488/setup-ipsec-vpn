@@ -1,0 +1,8 @@
+{
+    "files.exclude": {
+        "": true
+    },
+    "terminal.integrated.commandsToSkipShell": [
+        ""
+    ]
+}

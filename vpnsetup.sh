@@ -29,9 +29,57 @@ YOUR_PASSWORD=''
 
 # =====================================================
 
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+LANGUAGE="en"
 
-exiterr() { echo "Error: $1" >&2; exit 1; }
+# Function to display messages in different languages
+display_message() {
+  case "$LANGUAGE" in
+    "zh")
+      case "$1" in
+        "error_root") echo "错误：脚本必须以 root 身份运行。尝试 'sudo sh $0'" ;;
+        "error_vz") echo "错误：不支持 OpenVZ VPS。" ;;
+        "error_lxc") echo "错误：/dev/ppp 缺失。LXC 容器需要配置。" ;;
+        "error_os") echo "错误：此脚本仅支持以下操作系统：Ubuntu, Debian, CentOS/RHEL, Rocky Linux, AlmaLinux, Oracle Linux, Amazon Linux 2 或 Alpine Linux" ;;
+        "error_iface") echo "错误：检测到无线接口 '$def_iface'。不要在您的 PC 或 Mac 上运行此脚本！" ;;
+        "error_creds") echo "错误：必须指定所有 VPN 凭据。编辑脚本并重新输入它们。" ;;
+        "error_dns") echo "错误：指定的 DNS 服务器无效。" ;;
+        "error_server_dns") echo "错误：无效的 DNS 名称。'VPN_DNS_NAME' 必须是完全限定的域名 (FQDN)。" ;;
+        "error_client_name") echo "错误：无效的客户端名称。仅使用一个单词，不允许使用特殊字符，除了 '-' 和 '_'。" ;;
+        "error_apt") echo "错误：无法获取 apt/dpkg 锁。" ;;
+        "error_wget") echo "错误：'apt-get install wget' 失败。" ;;
+        "error_yum") echo "错误：'yum install wget' 失败。" ;;
+        "error_apk") echo "错误：'apk add' 失败。" ;;
+        "error_download") echo "错误：无法下载 VPN 设置脚本。" ;;
+        "error_tmpdir") echo "错误：无法创建临时目录。" ;;
+        *) echo "未知错误。" ;;
+      esac
+      ;;
+    *)
+      case "$1" in
+        "error_root") echo "Error: Script must be run as root. Try 'sudo sh $0'" ;;
+        "error_vz") echo "Error: OpenVZ VPS is not supported." ;;
+        "error_lxc") echo "Error: /dev/ppp is missing. LXC containers require configuration." ;;
+        "error_os") echo "Error: This script only supports one of the following OS: Ubuntu, Debian, CentOS/RHEL, Rocky Linux, AlmaLinux, Oracle Linux, Amazon Linux 2 or Alpine Linux" ;;
+        "error_iface") echo "Error: Wireless interface '$def_iface' detected. DO NOT run this script on your PC or Mac!" ;;
+        "error_creds") echo "Error: All VPN credentials must be specified. Edit the script and re-enter them." ;;
+        "error_dns") echo "Error: The DNS server specified is invalid." ;;
+        "error_server_dns") echo "Error: Invalid DNS name. 'VPN_DNS_NAME' must be a fully qualified domain name (FQDN)." ;;
+        "error_client_name") echo "Error: Invalid client name. Use one word only, no special characters except '-' and '_'." ;;
+        "error_apt") echo "Error: Could not get apt/dpkg lock." ;;
+        "error_wget") echo "Error: 'apt-get install wget' failed." ;;
+        "error_yum") echo "Error: 'yum install wget' failed." ;;
+        "error_apk") echo "Error: 'apk add' failed." ;;
+        "error_download") echo "Error: Could not download VPN setup script." ;;
+        "error_tmpdir") echo "Error: Could not create temporary directory." ;;
+        *) echo "Unknown error." ;;
+      esac
+      ;;
+  esac
+}
+
+exiterr() { display_message "$1"; exit 1; }
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 check_ip() {
   IP_REGEX='^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'
@@ -45,24 +93,20 @@ check_dns_name() {
 
 check_root() {
   if [ "$(id -u)" != 0 ]; then
-    exiterr "Script must be run as root. Try 'sudo sh $0'"
+    exiterr "error_root"
   fi
 }
 
 check_vz() {
   if [ -f /proc/user_beancounters ]; then
-    exiterr "OpenVZ VPS is not supported."
+    exiterr "error_vz"
   fi
 }
 
 check_lxc() {
   # shellcheck disable=SC2154
   if [ "$container" = "lxc" ] && [ ! -e /dev/ppp ]; then
-cat 1>&2 <<'EOF'
-Error: /dev/ppp is missing. LXC containers require configuration.
-       See: https://github.com/hwdsl2/setup-ipsec-vpn/issues/1014
-EOF
-  exit 1
+    exiterr "error_lxc"
   fi
 }
 
@@ -89,7 +133,7 @@ check_os() {
     fi
     if [ "$os_type" = "centos" ] \
       && { [ "$os_ver" = 7 ] || [ "$os_ver" = 8 ] || [ "$os_ver" = 8s ]; }; then
-      exiterr "CentOS Linux $os_ver is EOL and not supported."
+      exiterr "error_os"
     fi
   elif grep -qs "Amazon Linux release 2 " /etc/system-release; then
     os_type=amzn
@@ -113,12 +157,7 @@ check_os() {
         os_type=alpine
         ;;
       *)
-cat 1>&2 <<'EOF'
-Error: This script only supports one of the following OS:
-       Ubuntu, Debian, CentOS/RHEL, Rocky Linux, AlmaLinux,
-       Oracle Linux, Amazon Linux 2 or Alpine Linux
-EOF
-        exit 1
+        exiterr "error_os"
         ;;
     esac
     if [ "$os_type" = "alpine" ]; then
@@ -167,7 +206,7 @@ check_iface() {
   if [ "$check_wl" = 1 ]; then
     case $def_iface in
       wl*)
-        exiterr "Wireless interface '$def_iface' detected. DO NOT run this script on your PC or Mac!"
+        exiterr "error_iface"
         ;;
     esac
   fi
@@ -181,7 +220,7 @@ check_creds() {
     return 0
   fi
   if [ -z "$VPN_IPSEC_PSK" ] || [ -z "$VPN_USER" ] || [ -z "$VPN_PASSWORD" ]; then
-    exiterr "All VPN credentials must be specified. Edit the script and re-enter them."
+    exiterr "error_creds"
   fi
   if printf '%s' "$VPN_IPSEC_PSK $VPN_USER $VPN_PASSWORD" | LC_ALL=C grep -q '[^ -~]\+'; then
     exiterr "VPN credentials must not contain non-ASCII characters."
@@ -196,13 +235,13 @@ check_creds() {
 check_dns() {
   if { [ -n "$VPN_DNS_SRV1" ] && ! check_ip "$VPN_DNS_SRV1"; } \
     || { [ -n "$VPN_DNS_SRV2" ] && ! check_ip "$VPN_DNS_SRV2"; }; then
-    exiterr "The DNS server specified is invalid."
+    exiterr "error_dns"
   fi
 }
 
 check_server_dns() {
   if [ -n "$VPN_DNS_NAME" ] && ! check_dns_name "$VPN_DNS_NAME"; then
-    exiterr "Invalid DNS name. 'VPN_DNS_NAME' must be a fully qualified domain name (FQDN)."
+    exiterr "error_server_dns"
   fi
 }
 
@@ -211,7 +250,7 @@ check_client_name() {
     name_len="$(printf '%s' "$VPN_CLIENT_NAME" | wc -m)"
     if [ "$name_len" -gt "64" ] || printf '%s' "$VPN_CLIENT_NAME" | LC_ALL=C grep -q '[^A-Za-z0-9_-]\+' \
       || case $VPN_CLIENT_NAME in -*) true ;; *) false ;; esac; then
-      exiterr "Invalid client name. Use one word only, no special characters except '-' and '_'."
+      exiterr "error_client_name"
     fi
   fi
 }
@@ -223,7 +262,7 @@ wait_for_apt() {
   while fuser "$apt_lk" "$pkg_lk" >/dev/null 2>&1 \
     || lsof "$apt_lk" >/dev/null 2>&1 || lsof "$pkg_lk" >/dev/null 2>&1; do
     [ "$count" = 0 ] && echo "## Waiting for apt to be available..."
-    [ "$count" -ge 100 ] && exiterr "Could not get apt/dpkg lock."
+    [ "$count" -ge 100 ] && exiterr "error_apt"
     count=$((count+1))
     printf '%s' '.'
     sleep 3
@@ -238,23 +277,23 @@ install_pkgs() {
       (
         set -x
         apt-get -yqq update || apt-get -yqq update
-      ) || exiterr "'apt-get update' failed."
+      ) || exiterr "error_apt"
       (
         set -x
         apt-get -yqq install wget >/dev/null || apt-get -yqq install wget >/dev/null
-      ) || exiterr "'apt-get install wget' failed."
+      ) || exiterr "error_wget"
     elif [ "$os_type" != "alpine" ]; then
       (
         set -x
         yum -y -q install wget >/dev/null || yum -y -q install wget >/dev/null
-      ) || exiterr "'yum install wget' failed."
+      ) || exiterr "error_yum"
     fi
   fi
   if [ "$os_type" = "alpine" ]; then
     (
       set -x
       apk add -U -q bash coreutils grep net-tools sed wget
-    ) || exiterr "'apk add' failed."
+    ) || exiterr "error_apk"
   fi
 }
 
@@ -293,12 +332,12 @@ run_setup() {
       /bin/bash "$tmpdir/vpn.sh" || status=1
     else
       status=1
-      echo "Error: Could not download VPN setup script." >&2
+      display_message "error_download" >&2
     fi
     /bin/rm -f "$tmpdir/vpn.sh"
     /bin/rmdir "$tmpdir"
   else
-    exiterr "Could not create temporary directory."
+    exiterr "error_tmpdir"
   fi
 }
 
@@ -319,5 +358,8 @@ vpnsetup() {
 
 ## Defer setup until we have the complete script
 vpnsetup "$@"
+
+# Run shunit2 tests
+./shunit2/shunit2 tests/hello_world_test.sh
 
 exit "$status"
